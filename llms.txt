@@ -1,0 +1,99 @@
+# PayTR Payment Gateway PHP SDK (llms.txt)
+
+> Lightweight, zero-dependency, cURL-based PHP SDK for PayTR Payment Gateway (iFrame Token, Webhook Callback, Refund, Installments, BIN Lookup, Direct API). Built for both human software engineers and AI coding assistants (Gemini, Claude, Cursor, Copilot, ChatGPT).
+
+## Key Information for LLMs & AI Coding Assistants
+- **Namespace:** `PayTR\`
+- **PHP Requirements:** `>=8.0` with native `ext-curl` and `ext-json`.
+- **Zero Dependencies:** Does NOT require Guzzle, framework HTTP clients, or external packages. Uses native cURL with SSL verification.
+- **Endpoints:**
+  - Token (iFrame): `https://www.paytr.com/odeme/api/get-token`
+  - Refund (İade): `https://www.paytr.com/odeme/iade`
+  - Installment Rates: `https://www.paytr.com/odeme/taksit-oranlari`
+  - BIN Detail: `https://www.paytr.com/odeme/api/bin-detail`
+  - Direct 3D API: `https://www.paytr.com/odeme`
+
+## Critical Implementation Rules (Do Not Violate)
+1. **HMAC-SHA256 Token Concatenation Order:**
+   When generating the iFrame token, string concatenation MUST follow this exact order:
+   `$merchant_id . $user_ip . $merchant_oid . $email . $payment_amount . $user_basket . $no_installment . $max_installment . $currency . $test_mode`
+   Then hash using: `base64_encode(hash_hmac('sha256', $hashString . $merchant_salt, $merchant_key, true))`.
+2. **Amount Representation (Kuruş vs TL):**
+   - For `get-token`: `payment_amount` MUST be an INTEGER in KURUŞ. Always use `(int) round($amountInTL * 100)` to avoid PHP float precision bug (e.g. `19.99 * 100 -> 1998`).
+   - For `iade` (refund): `return_amount` MUST be formatted as TL with dot decimal: `number_format($amountInTL, 2, '.', '')`.
+3. **`user_basket` Format:**
+   Must be a JSON-encoded array of arrays `[[name, price, qty], ...]`, encoded with `JSON_UNESCAPED_UNICODE` and then `base64_encode()`.
+4. **Webhook / Callback Security & Idempotency:**
+   - Always verify hash using `hash_equals($calculatedHash, $postHash)`.
+   - Hash formula: `base64_encode(hash_hmac('sha256', $merchant_oid . $merchant_salt . $status . $total_amount, $merchant_key, true))`.
+   - Never trust `$status === 'success'` alone! Compare `$post['total_amount']` against expected order total in kuruş.
+   - If order is already paid, DO NOT duplicate inventory deduction or emails. Return `OK` immediately.
+   - Response to PayTR webhook MUST be strictly the plain string `"OK"`. No HTML, no whitespace.
+5. **Client IP behind Proxies:**
+   Use `PayTRClient::resolveClientIp()` to extract `HTTP_CF_CONNECTING_IP` or `HTTP_X_FORWARDED_FOR` instead of `REMOTE_ADDR` when behind Cloudflare / Nginx.
+
+## Quick Code Examples for AI Generation
+
+### Client Initialization
+```php
+use PayTR\PayTRClient;
+
+$client = new PayTRClient([
+    'merchant_id'   => 'YOUR_MERCHANT_ID',
+    'merchant_key'  => 'YOUR_MERCHANT_KEY',
+    'merchant_salt' => 'YOUR_MERCHANT_SALT',
+    'test_mode'     => true, // false for production
+    'verify_ssl'    => true
+]);
+```
+
+### Create iFrame Token
+```php
+use PayTR\PaymentData;
+use PayTR\BasketItem;
+
+$payment = new PaymentData(
+    merchantOid: 'ORDER-12345',
+    paymentAmount: 150.50, // Amount in TL
+    userIp: PayTRClient::resolveClientIp(),
+    email: 'user@example.com',
+    userName: 'Ahmet Yılmaz',
+    userAddress: 'Adres...',
+    userPhone: '05551234567',
+    merchantOkUrl: 'https://example.com/payment/success',
+    merchantFailUrl: 'https://example.com/payment/fail'
+);
+
+$payment->addItem(new BasketItem('Ürün Adı', 150.50, 1));
+$payment->noInstallment = false;
+$payment->currency = 'TL';
+
+$result = $client->createIframeToken($payment);
+// $result['token'], $result['iframe_url']
+// Render responsive iframe: echo $client->renderIframeHtml($result['token']);
+```
+
+### Callback / Webhook Endpoint
+```php
+if (!$client->validateCallback($_POST)) {
+    http_response_code(400);
+    exit('PAYTR notification failed: bad hash');
+}
+
+$merchantOid = (string) $_POST['merchant_oid'];
+$status = (string) $_POST['status'];
+$totalAmountKurus = (int) $_POST['total_amount'];
+
+// Check order in DB and ensure $order->is_paid is false
+// Check if $totalAmountKurus === (int) round($order->total * 100)
+// If already paid: exit('OK');
+// Mark order paid, deduct stock...
+
+echo "OK";
+exit;
+```
+
+### Refund (İade)
+```php
+$res = $client->refund('ORDER-12345', 50.00, 'REF-001');
+```

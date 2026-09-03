@@ -3,6 +3,21 @@
     "description": "A zero-dependency, cURL-based PHP SDK for PayTR Payment Gateway (iFrame Token, Callback Webhook, Refund, Installments, BIN Lookup, Direct API) designed for humans and AI coding assistants.",
     "type": "library",
     "license": "MIT",
+    "keywords": [
+        "paytr",
+        "paytr-api",
+        "sanal-pos",
+        "odeme-gecidi",
+        "payment-gateway",
+        "iframe-token",
+        "webhook",
+        "refund",
+        "taksit-oranlari",
+        "bin-lookup",
+        "php-sdk",
+        "zero-dependency",
+        "ecommerce"
+    ],
     "authors": [
         {
             "name": "Emirhan Güngörmez",
