@@ -1,0 +1,23 @@
+{
+    "name": "emirhangungormez/paytrapi",
+    "description": "A zero-dependency, cURL-based PHP SDK for PayTR Payment Gateway (iFrame Token, Callback Webhook, Refund, Installments, BIN Lookup, Direct API) designed for humans and AI coding assistants.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Emirhan Güngörmez",
+            "email": "emirhangungormez@outlook.com.tr"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=8.0",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "PayTR\\": "src/"
+        }
+    }
+}
